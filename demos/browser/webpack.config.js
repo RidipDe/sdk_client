@@ -54,7 +54,7 @@ module.exports = env => {
             options: {
               plugins: function () {
                 return [
-                  require('precss'),
+                  //require('precss'),
                   require('autoprefixer')
                 ];
               },

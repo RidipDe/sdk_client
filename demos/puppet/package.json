@@ -4,10 +4,9 @@
   "description": "Amazon Chime SDK JavaScript Demos",
   "scripts": {
     "deps": "cd ../.. && npm run build",
-    "build:fast": "tsc && webpack --config ./webpack.config.js",
-    "build": "npm run deps && npm install && npm run build:fast",
-    "start:fast": "npm run build:fast && node server.js",
-    "start": "npm run deps && npm install && npm install aws-sdk && npm run start:fast"
+    "build": "npm run deps && npm install",
+    "start:fast": "node puppet.js",
+    "start": "npm run deps && npm install && npm install puppeteer && npm install aws-sdk && npm run start:fast"
   },
   "devDependencies": {
     "@types/jquery": "^3.3.31",
@@ -15,8 +14,6 @@
     "awesome-typescript-loader": "^5.2.1",
     "css-loader": "^3.2.0",
     "file-loader": "^4.2.0",
-    "html-webpack-inline-source-plugin": "^0.0.10",
-    "html-webpack-plugin": "^3.2.0",
     "markdown-it": "^10.0.0",
     "node-sass": "^4.14.1",
     "open-iconic": "^1.1.1",
@@ -26,17 +23,16 @@
     "sass": "^1.23.0",
     "sass-loader": "^8.0.0",
     "style-loader": "^1.0.0",
-    "typescript": "^3.4.5",
-    "webpack": "^4.32.2",
-    "webpack-cli": "^3.3.2"
+    "typescript": "^3.4.5"
   },
   "dependencies": {
     "amazon-chime-sdk-js": "file:../..",
-    "aws-sdk": "^2.727.0",
+    "aws-sdk": "^2.724.0",
     "bootstrap": "^4.3.1",
     "compression": "^1.7.4",
     "jquery": "^3.4.1",
-    "popper.js": "^1.15.0"
+    "popper.js": "^1.15.0",
+    "puppeteer": "^5.2.1"
   },
   "license": "Apache-2.0",
   "repository": {
