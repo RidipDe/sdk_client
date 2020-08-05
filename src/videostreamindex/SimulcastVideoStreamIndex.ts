@@ -27,8 +27,11 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
 
   private _localStreamInfos: VideoStreamDescription[] = [];
 
+  private _lastBitRateMsgTime: number;
+
   constructor(logger: Logger) {
     super(logger);
+    this._lastBitRateMsgTime = Date.now();
   }
 
   localStreamDescriptions(): VideoStreamDescription[] {
@@ -53,17 +56,24 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
         newInfo.maxBitrateKbps = targetMaxBitrateKbps;
         newInfo.maxFrameRate = targetMaxFrameRate;
         newInfo.disabledByUplinkPolicy = targetMaxBitrateKbps === 0 ? true : false;
+        if (targetMaxBitrateKbps != 0) {
+          newInfo.timeEnabled = Date.now();
+        }
         this._localStreamInfos.push(newInfo);
         localStreamIndex++;
         continue;
       }
 
+      if ((this._localStreamInfos[localStreamIndex].maxBitrateKbps === 0) && (targetMaxBitrateKbps > 0)) {
+        this._localStreamInfos[localStreamIndex].timeEnabled = Date.now();
+      }
       this._localStreamInfos[localStreamIndex].maxBitrateKbps = targetMaxBitrateKbps;
       this._localStreamInfos[localStreamIndex].maxFrameRate = targetMaxFrameRate;
       this._localStreamInfos[localStreamIndex].disabledByUplinkPolicy =
         targetMaxBitrateKbps === 0 ? true : false;
-      // reset state
+      if (this._localStreamInfos[localStreamIndex].disabledByUplinkPolicy === true) {
       this._localStreamInfos[localStreamIndex].disabledByWebRTC = false;
+      }
       localStreamIndex++;
     }
 
@@ -113,6 +123,7 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
     }
 
     for (let i = 0; i < this._localStreamInfos.length; i++) {
+      this._localStreamInfos[i].disabledByWebRTC = false;
       const streamId = this._localStreamInfos[i].streamId;
       if (this._localStreamInfos[i].disabledByUplinkPolicy) {
         continue;
@@ -121,14 +132,15 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
         const avgBitrateKbps = this.streamIdToBitrateKbpsMap.get(streamId);
         if (avgBitrateKbps === SimulcastVideoStreamIndex.NOT_SENDING_STREAM_BITRATE) {
           this._localStreamInfos[i].disabledByWebRTC = true;
-        } else {
-          this._localStreamInfos[i].disabledByWebRTC = false;
         }
       } else {
-        this._localStreamInfos[i].disabledByWebRTC = true;
+        // Do not flag as disabled if it was enabled before last bitrate message
+        if (this._lastBitRateMsgTime > this._localStreamInfos[i].timeEnabled) {
+          this._localStreamInfos[i].disabledByWebRTC = true;
+         }
       }
     }
-
+    this._lastBitRateMsgTime = Date.now();
     this.logLocalStreamDescriptions();
   }
 

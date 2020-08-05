@@ -14,8 +14,8 @@ import VideoUplinkBandwidthPolicy from './VideoUplinkBandwidthPolicy';
  *  parameters that reacts to estimated uplink bandwidth
  */
 export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy {
-  static readonly defaultUplinkBandwidthKbps: number = 2800;
-  static readonly windowSize: number = 5;
+  static readonly defaultUplinkBandwidthKbps: number = 1100;
+  static readonly startupDurationMs: number = 6000;
   static readonly holdDownDurationMs: number = 4000;
   static readonly defaultMaxFrameRate = 15;
 
@@ -25,13 +25,12 @@ export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy
 
   private newQualityMap = new Map<string, RTCRtpEncodingParameters>();
   private currentQualityMap = new Map<string, RTCRtpEncodingParameters>();
-  private lastUplinkBandwidthKbps: number = 2800;
+  private lastUplinkBandwidthKbps: number = 1100;
 
   private newMediaTrackConstraints: MediaTrackConstraints = {};
   private currMediaTrackConstraints: MediaTrackConstraints = {};
+  private startTimeMs: number = 0;
   private lastUpdatedMs: number = Date.now();
-
-  private uplinkMeasurementWindow: number[] = [];
 
   private videoIndex: VideoStreamIndex | null = null;
 
@@ -42,35 +41,13 @@ export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy
     this.optimalParameters = new DefaultVideoAndEncodeParameter(0, 0, 0, 0, true);
     this.parametersInEffect = new DefaultVideoAndEncodeParameter(0, 0, 0, 0, true);
 
-    for (let i = 0; i < SimulcastUplinkPolicy.windowSize; i++) {
-      this.uplinkMeasurementWindow.push(SimulcastUplinkPolicy.defaultUplinkBandwidthKbps);
-    }
-
-    this.lastUplinkBandwidthKbps = this.getWindowsUplinkKbps();
+    this.lastUplinkBandwidthKbps =  SimulcastUplinkPolicy.defaultUplinkBandwidthKbps;
 
     this.currentQualityMap = this.fillEncodingParamWithBitrates([300, 500, 1100]);
     this.newQualityMap = this.fillEncodingParamWithBitrates([300, 500, 1100]);
 
     this.newMediaTrackConstraints = this.fillMediaTrackConstraints();
     this.currMediaTrackConstraints = this.fillMediaTrackConstraints();
-  }
-
-  private getWindowsUplinkKbps(): number {
-    const weightedAverage =
-      this.uplinkMeasurementWindow[0] * 0.05 +
-      this.uplinkMeasurementWindow[1] * 0.15 +
-      this.uplinkMeasurementWindow[2] * 0.2 +
-      this.uplinkMeasurementWindow[3] * 0.25 +
-      this.uplinkMeasurementWindow[4] * 0.35;
-
-    return weightedAverage;
-  }
-
-  private updateWindowsUplinkKbps(uplinkKbps: number): number {
-    this.uplinkMeasurementWindow.shift();
-    this.uplinkMeasurementWindow.push(uplinkKbps);
-
-    return this.getWindowsUplinkKbps();
   }
 
   updateConnectionMetric({
@@ -81,10 +58,20 @@ export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy
     if (isNaN(uplinkKbps)) {
       return;
     }
-    this.lastUplinkBandwidthKbps = this.updateWindowsUplinkKbps(uplinkKbps);
+
+    // Check if startup period in order to ignore estimate when video first enabled.
+    // If only audio was active then the estimate will ve very low
+    if (this.startTimeMs === 0) {
+      this.startTimeMs = Date.now();
+    }
+    if ((Date.now() - this.startTimeMs) < SimulcastUplinkPolicy.startupDurationMs) {
+      this.lastUplinkBandwidthKbps = SimulcastUplinkPolicy.defaultUplinkBandwidthKbps;
+    }
+    else {
+      this.lastUplinkBandwidthKbps = uplinkKbps;
+    }
     this.logger.debug(() => {
-      return `simulcast: uplink policy update metrics ${uplinkKbps}Kbps
-      windowed ${this.lastUplinkBandwidthKbps}Kbps`;
+      return `simulcast: uplink policy update metrics ${this.lastUplinkBandwidthKbps}`;
     });
     if (Date.now() < this.lastUpdatedMs + SimulcastUplinkPolicy.holdDownDurationMs) {
       return;
@@ -102,41 +89,51 @@ export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy
       new BitrateParameters(),
     ];
 
-    if (this.numParticipants <= 2 && this.lastUplinkBandwidthKbps >= 1600) {
+    if (this.numParticipants <= 2 && this.lastUplinkBandwidthKbps >= 1200) {
       // 320x192+ (640x384) +  + 1280x768
       newBitrates[0].maxBitrateKbps = 300;
 
       newBitrates[1].maxBitrateKbps = 0;
 
       newBitrates[2].maxBitrateKbps = 1200;
-    } else if (this.numParticipants <= 2 && this.lastUplinkBandwidthKbps >= 1100) {
+    } else if (this.numParticipants <= 2 && this.lastUplinkBandwidthKbps >= 1000) {
       // 240x144 + (480x288) + 960x576
       newBitrates[0].maxBitrateKbps = 200;
 
       newBitrates[1].maxBitrateKbps = 0;
 
-      newBitrates[2].maxBitrateKbps = 900;
+      newBitrates[2].maxBitrateKbps = 1000;
     } else if (this.numParticipants <= 4 && this.lastUplinkBandwidthKbps >= 600) {
       // 240x144 + (480x288) + 960x576
       newBitrates[0].maxBitrateKbps = 200;
 
       newBitrates[1].maxBitrateKbps = 0;
 
-      newBitrates[2].maxBitrateKbps = 600;
-    } else {
+      newBitrates[2].maxBitrateKbps = 800;
+    } else if (this.lastUplinkBandwidthKbps >= 250) {
       // 320x192 + 640x384 + (1280x768)
       newBitrates[0].maxBitrateKbps = 200;
 
       newBitrates[1].maxBitrateKbps = 400;
 
       newBitrates[2].maxBitrateKbps = 0;
-    }
+        
+      } else {
+        // 320x192 + 640x384 + (1280x768)
+        newBitrates[0].maxBitrateKbps = 300;
 
+        newBitrates[1].maxBitrateKbps = 0;
+  
+      newBitrates[2].maxBitrateKbps = 0;
+    }
     const bitrates: number[] = newBitrates.map((v, _i, _a) => {
       return v.maxBitrateKbps;
     });
 
     this.newQualityMap = this.fillEncodingParamWithBitrates(bitrates);
+    if (!this.encodingParametersEqual()) {
+      this.logger.info('simulcast: policy:calculateEncodingParameters created newQualityMap:' + this.getQualityMapString(this.newQualityMap));
+    }
     return this.newQualityMap;
   }
 
@@ -222,6 +219,20 @@ export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy
     return JSON.stringify(encoding1) === JSON.stringify(encoding2);
   }
 
+  private encodingParametersEqual() {
+    let different = false;
+    for (const ridName of SimulcastTransceiverController.NAME_ARR_ASCENDING) {
+      different =
+        different ||
+        !this.compareEncodingParameter(
+          this.newQualityMap.get(ridName),
+          this.currentQualityMap.get(ridName)
+        );
+    }
+
+    return different;
+  }
+
   chooseCaptureAndEncodeParameters(): DefaultVideoAndEncodeParameter {
     // should deprecate in this policy
     this.parametersInEffect = this.optimalParameters.clone();
@@ -305,4 +316,20 @@ export default class SimulcastUplinkPolicy implements VideoUplinkBandwidthPolicy
 
     return trackConstraint;
   }
+
+  private getQualityMapString(params: Map<string, RTCRtpEncodingParameters>): string {
+    let qualityString = '';
+    const localDescriptions = this.videoIndex.localStreamDescriptions();
+    params.forEach((value: RTCRtpEncodingParameters, key:string) => {
+      let disabledByWebRTC = false;
+      if (localDescriptions.length === 3) {
+        if (value.rid === 'low') disabledByWebRTC = localDescriptions[0].disabledByWebRTC;
+        else if (value.rid === 'mid')  disabledByWebRTC = localDescriptions[1].disabledByWebRTC;
+        else  disabledByWebRTC = localDescriptions[2].disabledByWebRTC;
+      }
+      qualityString += '{ rid:' + value.rid + ' active:' + value.active + ' disabledByWebRTC:' +  disabledByWebRTC + ' maxBitrate:' + value.maxBitrate + ' } ';
+    });
+    return qualityString;
+  }
+
 }
