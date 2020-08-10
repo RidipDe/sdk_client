@@ -25,6 +25,8 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
   // Third time when bitrate is missing, mark it as not sending
   static readonly NOT_SENDING_STREAM_BITRATE = 0;
 
+  static readonly BitratesMsgFrequencyMs: number = 4000;
+
   private _localStreamInfos: VideoStreamDescription[] = [];
 
   private _lastBitRateMsgTime: number;
@@ -56,7 +58,7 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
         newInfo.maxBitrateKbps = targetMaxBitrateKbps;
         newInfo.maxFrameRate = targetMaxFrameRate;
         newInfo.disabledByUplinkPolicy = targetMaxBitrateKbps === 0 ? true : false;
-        if (targetMaxBitrateKbps != 0) {
+        if (targetMaxBitrateKbps !== 0) {
           newInfo.timeEnabled = Date.now();
         }
         this._localStreamInfos.push(newInfo);
@@ -64,7 +66,10 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
         continue;
       }
 
-      if ((this._localStreamInfos[localStreamIndex].maxBitrateKbps === 0) && (targetMaxBitrateKbps > 0)) {
+      if (
+        this._localStreamInfos[localStreamIndex].maxBitrateKbps === 0 &&
+        targetMaxBitrateKbps > 0
+      ) {
         this._localStreamInfos[localStreamIndex].timeEnabled = Date.now();
       }
       this._localStreamInfos[localStreamIndex].maxBitrateKbps = targetMaxBitrateKbps;
@@ -72,7 +77,7 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
       this._localStreamInfos[localStreamIndex].disabledByUplinkPolicy =
         targetMaxBitrateKbps === 0 ? true : false;
       if (this._localStreamInfos[localStreamIndex].disabledByUplinkPolicy === true) {
-      this._localStreamInfos[localStreamIndex].disabledByWebRTC = false;
+        this._localStreamInfos[localStreamIndex].disabledByWebRTC = false;
       }
       localStreamIndex++;
     }
@@ -134,10 +139,13 @@ export default class SimulcastVideoStreamIndex extends DefaultVideoStreamIndex {
           this._localStreamInfos[i].disabledByWebRTC = true;
         }
       } else {
-        // Do not flag as disabled if it was enabled before last bitrate message
-        if (this._lastBitRateMsgTime > this._localStreamInfos[i].timeEnabled) {
+        // Do not flag as disabled if it was recently enabled
+        if (
+          this._lastBitRateMsgTime - this._localStreamInfos[i].timeEnabled >
+          SimulcastVideoStreamIndex.BitratesMsgFrequencyMs
+        ) {
           this._localStreamInfos[i].disabledByWebRTC = true;
-         }
+        }
       }
     }
     this._lastBitRateMsgTime = Date.now();
