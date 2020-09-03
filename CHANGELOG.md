@@ -5,20 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.15.0] - 2020-08-10
 
 ### Added
 - Add comments for VideoTileState class and instructions in FAQ document
+- Add reference to CreateMeetingWithAttendees in FAQ
 
 ### Changed
 - Bump elliptic from 6.5.2 to 6.5.3 in /demos/device
 - Log info when stop pinging due to Websocket closed
+- Change the demo app to show content share video back to sharer
+- Change bootstrap version for meeting demo to 4.5.0
+- Change content share video check to use attendee name instead of video element index
 
 ### Removed
 
 ### Fixed
 - Ensure all simulcast stream resolution are 16-aligned to avoid pixel3(XL) encoder issue
 - Fix race condition in Chromium browsers when consecutive audio bind operations take place 
+- Fix invalid constraints and disable Unified Plan in safari 12.0
+- Fix isSupported API in DefaultBrowserBehavior return true for Firefox on Android
 
 ## [1.14.0] - 2020-07-28
 

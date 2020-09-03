@@ -23,6 +23,7 @@ import {
   MeetingSessionStatusCode,
   TimeoutScheduler
 } from '../../../../src/index';
+import ClientMetricReport from "../../../../src/clientmetricreport/ClientMetricReport";
 
 class TestSound {
   constructor(
@@ -82,8 +83,7 @@ export class DemoMeetingApp implements AudioVideoObserver{
   defaultBrowserBehaviour: DefaultBrowserBehavior;
   // eslint-disable-next-line
   roster: any = {};
-  tileIndexToTileId: { [id: number]: number } = {};
-  tileIdToTileIndex: { [id: number]: number } = {};
+  metricReport: any = {};
 
   cameraDeviceIds: string[] = [];
   microphoneDeviceIds: string[] = [];
@@ -171,7 +171,7 @@ export class DemoMeetingApp implements AudioVideoObserver{
           // await this.audioVideo.chooseVideoInputDevice(null);
           // await this.audioVideo.chooseAudioInputDevice(this.audioInputSelectionToDevice('432 Hz'));
           await this.audioVideo.chooseAudioInputDevice(this.audioInputSelectionToDevice('440 Hz'));
-          this.hideProgress('progress-join');
+          //this.hideProgress('progress-join');
           this.displayButtonStates();
           this.switchToFlow('flow-meeting');
           //await this.openAudioInputFromSelection();
@@ -318,14 +318,12 @@ export class DemoMeetingApp implements AudioVideoObserver{
   }
 
   switchToFlow(flow: string): void {
-    this.analyserNodeCallback = () => {};
+    //this.analyserNodeCallback = () => {};
     Array.from(document.getElementsByClassName('flow')).map(
       e => ((e as HTMLDivElement).style.display = 'none')
     );
     (document.getElementById(flow) as HTMLDivElement).style.display = 'block';
-    if (flow === 'flow-devices') {
-      this.startAudioPreview();
-    }
+
   }
 
   audioInputsChanged(_freshAudioInputDeviceList: MediaDeviceInfo[]): void {
@@ -387,6 +385,31 @@ export class DemoMeetingApp implements AudioVideoObserver{
     document.getElementById(elementId).addEventListener('click', () => {
       f();
     });
+  }
+
+  metricsDidReceive(clientMetricReport: ClientMetricReport): void {
+    const metricReport = clientMetricReport.getObservableMetrics();
+    this.metricReport = metricReport;
+    if (typeof metricReport.audioDecoderLoss === 'number' && !isNaN(metricReport.audioDecoderLoss)) {
+      (document.getElementById('audioDecoderLoss') as HTMLSpanElement).innerText = String(metricReport.audioDecoderLoss);
+    }
+    if (typeof metricReport.audioPacketsReceived === 'number' && !isNaN(metricReport.audioPacketsReceived)) {
+      (document.getElementById('audioPacketsReceived') as HTMLSpanElement).innerText = String(metricReport.audioPacketsReceived);
+    }
+    if (typeof metricReport.audioPacketsReceivedFractionLoss === 'number' && !isNaN(metricReport.audioPacketsReceivedFractionLoss)) {
+      (document.getElementById('audioPacketsReceivedFractionLoss') as HTMLSpanElement).innerText = String(metricReport.audioPacketsReceivedFractionLoss);
+    }
+    if (typeof metricReport.audioSpeakerDelayMs === 'number' && !isNaN(metricReport.audioSpeakerDelayMs)) {
+      (document.getElementById('audioSpeakerDelayMs') as HTMLSpanElement).innerText = String(metricReport.audioSpeakerDelayMs);
+    }
+    if (typeof metricReport.availableReceiveBandwidth === 'number' && !isNaN(metricReport.availableReceiveBandwidth)) {
+      (document.getElementById('availableReceiveBandwidth') as HTMLSpanElement).innerText = String(metricReport.availableReceiveBandwidth);
+    }
+    if (typeof metricReport.availableSendBandwidth === 'number' && !isNaN(metricReport.availableSendBandwidth)) {
+      (document.getElementById('availableSendBandwidth') as HTMLSpanElement).innerText = String(metricReport.availableSendBandwidth);
+    }
+
+    console.log(metricReport);
   }
 
   async join(): Promise<void> {
@@ -640,57 +663,6 @@ export class DemoMeetingApp implements AudioVideoObserver{
     }
   }
 
-  populateInMeetingDeviceList(
-    elementId: string,
-    genericName: string,
-    devices: MediaDeviceInfo[],
-    additionalOptions: string[],
-    callback: (name: string) => void
-  ): void {
-    const menu = document.getElementById(elementId) as HTMLDivElement;
-    while (menu.firstElementChild) {
-      menu.removeChild(menu.firstElementChild);
-    }
-    for (let i = 0; i < devices.length; i++) {
-      this.createDropdownMenuItem(menu, devices[i].label || `${genericName} ${i + 1}`, () => {
-        callback(devices[i].deviceId);
-      });
-    }
-    if (additionalOptions.length > 0) {
-      this.createDropdownMenuItem(menu, '──────────', () => {}).classList.add('text-center');
-      for (const additionalOption of additionalOptions) {
-        this.createDropdownMenuItem(
-          menu,
-          additionalOption,
-          () => {
-            callback(additionalOption);
-          },
-          `${elementId}-${additionalOption.replace(/\s/g, '-')}`
-        );
-      }
-    }
-    if (!menu.firstElementChild) {
-      this.createDropdownMenuItem(menu, 'Device selection unavailable', () => {});
-    }
-  }
-
-  createDropdownMenuItem(
-    menu: HTMLDivElement,
-    title: string,
-    clickHandler: () => void,
-    id?: string
-  ): HTMLButtonElement {
-    const button = document.createElement('button') as HTMLButtonElement;
-    menu.appendChild(button);
-    button.innerText = title;
-    button.classList.add('dropdown-item');
-    this.updateProperty(button, 'id', id);
-    button.addEventListener('click', () => {
-      clickHandler();
-    });
-    return button;
-  }
-
   async populateAllDeviceLists(): Promise<void> {
     //await this.populateAudioInputList();
     //await this.populateAudioOutputList();
@@ -699,14 +671,14 @@ export class DemoMeetingApp implements AudioVideoObserver{
   async populateAudioInputList(): Promise<void> {
   }
 
-  private analyserNodeCallback = () => {};
+  //private analyserNodeCallback = () => {};
 
   async openAudioInputFromSelection(): Promise<void> {
     const audioInput = document.getElementById('audio-input') as HTMLSelectElement;
     await this.audioVideo.chooseAudioInputDevice(
       this.audioInputSelectionToDevice(audioInput.value)
     );
-    this.startAudioPreview();
+
   }
 
   setAudioPreviewPercent(percent: number): void {
@@ -717,36 +689,36 @@ export class DemoMeetingApp implements AudioVideoObserver{
       audioPreview.setAttribute('aria-valuenow', `${percent}`);
     }
   }
-
-  startAudioPreview(): void {
-    this.setAudioPreviewPercent(0);
-    const analyserNode = this.audioVideo.createAnalyserNodeForAudioInput();
-    if (!analyserNode) {
-      return;
-    }
-    if (!analyserNode.getByteTimeDomainData) {
-      document.getElementById('audio-preview').parentElement.style.visibility = 'hidden';
-      return;
-    }
-    const data = new Uint8Array(analyserNode.fftSize);
-    let frameIndex = 0;
-    this.analyserNodeCallback = () => {
-      if (frameIndex === 0) {
-        analyserNode.getByteTimeDomainData(data);
-        const lowest = 0.01;
-        let max = lowest;
-        for (const f of data) {
-          max = Math.max(max, (f - 128) / 128);
-        }
-        let normalized = (Math.log(lowest) - Math.log(max)) / Math.log(lowest);
-        let percent = Math.min(Math.max(normalized * 100, 0), 100);
-        this.setAudioPreviewPercent(percent);
-      }
-      frameIndex = (frameIndex + 1) % 2;
-      requestAnimationFrame(this.analyserNodeCallback);
-    };
-    requestAnimationFrame(this.analyserNodeCallback);
-  }
+  //
+  // startAudioPreview(): void {
+  //   this.setAudioPreviewPercent(0);
+  //   const analyserNode = this.audioVideo.createAnalyserNodeForAudioInput();
+  //   if (!analyserNode) {
+  //     return;
+  //   }
+  //   if (!analyserNode.getByteTimeDomainData) {
+  //     document.getElementById('audio-preview').parentElement.style.visibility = 'hidden';
+  //     return;
+  //   }
+  //   const data = new Uint8Array(analyserNode.fftSize);
+  //   let frameIndex = 0;
+  //   this.analyserNodeCallback = () => {
+  //     if (frameIndex === 0) {
+  //       analyserNode.getByteTimeDomainData(data);
+  //       const lowest = 0.01;
+  //       let max = lowest;
+  //       for (const f of data) {
+  //         max = Math.max(max, (f - 128) / 128);
+  //       }
+  //       let normalized = (Math.log(lowest) - Math.log(max)) / Math.log(lowest);
+  //       let percent = Math.min(Math.max(normalized * 100, 0), 100);
+  //       this.setAudioPreviewPercent(percent);
+  //     }
+  //     frameIndex = (frameIndex + 1) % 2;
+  //     requestAnimationFrame(this.analyserNodeCallback);
+  //   };
+  //   requestAnimationFrame(this.analyserNodeCallback);
+  // }
 
   async openAudioOutputFromSelection(): Promise<void> {
     const audioOutput = document.getElementById('audio-output') as HTMLSelectElement;
@@ -806,66 +778,15 @@ export class DemoMeetingApp implements AudioVideoObserver{
     }
   }
 
-  tileIdForAttendeeId(attendeeId: string): number | null {
-    for (const tile of this.audioVideo.getAllVideoTiles()) {
-      const state = tile.state();
-      if (state.boundAttendeeId === attendeeId) {
-        return state.tileId;
-      }
-    }
-    return null;
-  }
-
-  findContentTileId(): number | null {
-    for (const tile of this.audioVideo.getAllVideoTiles()) {
-      const state = tile.state();
-      if (state.isContent) {
-        return state.tileId;
-      }
-    }
-    return null;
-  }
-
-  isContentTile(tileIndex: number): boolean {
-    const tileId = this.tileIndexToTileId[tileIndex];
-    if (!tileId) {
-      return false;
-    }
-    const tile = this.audioVideo.getVideoTile(tileId);
-    if (!tile) {
-      return false;
-    }
-    return tile.state().isContent;
-  }
-
-  activeTileId(): number | null {
-    let contentTileId = this.findContentTileId();
-    if (contentTileId !== null) {
-      return contentTileId;
-    }
-    for (const attendeeId in this.roster) {
-      if (this.roster[attendeeId].active) {
-        return this.tileIdForAttendeeId(attendeeId);
-      }
-    }
-    return null;
-  }
-
   connectionDidBecomePoor(): void {
     this.log('connection is poor');
   }
 
-  connectionDidSuggestStopVideo(): void {
-    this.log('suggest turning the video off');
-  }
 
   connectionDidBecomeGood(): void {
     this.log('connection is good now');
   }
 
-  videoSendDidBecomeUnavailable(): void {
-    this.log('sending video is not available');
-  }
 }
 
 window.addEventListener('load', () => {
