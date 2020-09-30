@@ -24,6 +24,7 @@ import ClientMetricReport from './clientmetricreport/ClientMetricReport';
 import ClientMetricReportDirection from './clientmetricreport/ClientMetricReportDirection';
 import ClientMetricReportMediaType from './clientmetricreport/ClientMetricReportMediaType';
 import ClientVideoStreamReceivingReport from './clientmetricreport/ClientVideoStreamReceivingReport';
+import CloudWatchLogger from './logger/CloudWatchLogger';
 import ConnectionHealthData from './connectionhealthpolicy/ConnectionHealthData';
 import ConnectionHealthPolicy from './connectionhealthpolicy/ConnectionHealthPolicy';
 import ConnectionHealthPolicyConfiguration from './connectionhealthpolicy/ConnectionHealthPolicyConfiguration';
@@ -324,6 +325,7 @@ export {
   ClientMetricReportDirection,
   ClientMetricReportMediaType,
   ClientVideoStreamReceivingReport,
+  CloudWatchLogger,
   ConnectionHealthData,
   ConnectionHealthPolicy,
   ConnectionHealthPolicyConfiguration,

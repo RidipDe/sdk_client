@@ -74,6 +74,7 @@ export default class MeetingSessionPOSTLogger {
           method: 'POST',
           body,
         });
+        console.error('Responseeeeee Status ', response.status);
         if (response.status === 200) {
           this.logCapture = this.logCapture.slice(batch.length);
         }

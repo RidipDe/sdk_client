@@ -7,6 +7,10 @@ Parameters:
     Default: false
     Type: String
     AllowedValues: [true, false]
+  ChimeEndpoint:
+    Description: The AWS SDK Chime endpoint
+    Default: "https://service.chime.aws.amazon.com"
+    Type: String
 Conditions:
   ShouldUseEventBridge: !Equals [true, !Ref UseEventBridge]
 Globals:
@@ -19,6 +23,7 @@ Globals:
         MEETINGS_TABLE_NAME: !Ref Meetings
         SQS_QUEUE_ARN: !GetAtt MeetingNotificationsQueue.Arn
         BROWSER_LOG_GROUP_NAME: !Ref ChimeBrowserLogs
+        CHIME_ENDPOINT: !Ref ChimeEndpoint
 Resources:
   ChimeMeetingsAccessPolicy:
     Type: AWS::IAM::Policy
@@ -30,6 +35,8 @@ Resources:
           - Effect: Allow
             Action:
               - 'chime:CreateMeeting'
+              - 'chime:TagMeeting'
+              - 'chime:TagResource'
               - 'chime:DeleteMeeting'
               - 'chime:GetMeeting'
               - 'chime:ListMeetings'
@@ -54,9 +61,24 @@ Resources:
               - 'logs:CreateLogStream'
               - 'logs:PutLogEvents'
               - 'logs:DescribeLogStreams'
+              - 'cloudwatch:*'
             Resource: '*'
       Roles:
         - Ref: ChimeSdkBrowserLogsLambdaRole
+        - Ref: ChimeSdkBrowserCreateLogStreamLambdaRole
+  S3AccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3Access
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:*'
+            Resource: '*'
+      Roles:
+        - Ref: S3GetStatusRoleLambdaRole
   Meetings:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -172,6 +194,28 @@ Resources:
           Type: Api
           Properties:
             Path: /logs
+            Method: POST
+  S3GetStatusRoleLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.get_load_test_status
+      CodeUri: src/
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /get_load_test_status
+            Method: GET
+  ChimeSdkBrowserCreateLogStreamLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.create_log_stream
+      CodeUri: src/
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /create_log_stream
             Method: POST
   ChimeNotificationsQueuePolicy:
     Type: AWS::SQS::QueuePolicy

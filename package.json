@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@types/dom-mediacapture-record": "^1.0.4",
+    "aws-sdk": "^2.771.0",
     "detect-browser": "^4.7.0",
     "protobufjs": "~6.8.8",
     "resize-observer": "^1.0.0"
